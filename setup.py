@@ -3,7 +3,7 @@ from setuptools import setup
 setup(name='cyrun',
       version='0.1',
       description='compile and run cython in one line',
-      url='http://github.com/benwbooth/cyrun',
+      url='https://github.com/benwbooth/python-cyrun',
       author='Ben Booth',
       author_email='benwbooth@gmail.com',
       license='MIT',
