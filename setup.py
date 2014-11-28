@@ -7,7 +7,6 @@ setup(name='cyrun',
       author='Ben Booth',
       author_email='benwbooth@gmail.com',
       license='MIT',
-      packages=['cyrun'],
       keywords="cython python run executable",
       zip_safe=True,
       scripts=['cyrun','cyrun2','cyrun3'])
