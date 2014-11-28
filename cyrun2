@@ -1,0 +1,48 @@
+#!/usr/bin/env python2
+import distutils.core, Cython.Build, importlib, os, os.path, sys, socket
+import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, platform
+# remove 0-arg
+sys.argv.pop(0)
+# determine the build path for the cached extension library
+build_dir = os.path.join(
+    os.environ.get("CYTHON_BIN", 
+        ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
+    re.sub('/', '%2F', re.sub('%', '%%', 
+        "/".join([socket.gethostname(), platform.python_version(), os.path.abspath(sys.argv[0])]))))
+# get the module name
+module = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+# create the build path if it doesn't already exist
+try: 
+    os.makedirs(build_dir, 0o700)
+except OSError as e: 
+    if e.errno != errno.EEXIST: 
+        raise
+# create the temp build directory as a subdirectory of the build path
+tmpdir = tempfile.mkdtemp(dir=build_dir)
+try:
+    # make empty files in the temp build directory with the correct mtime to avoid
+    # rebuilding every time
+    for f in os.listdir(build_dir): 
+        if os.path.isfile(os.path.join(build_dir,f)):
+            mtime = os.path.getmtime(os.path.join(build_dir, f))
+            with open(os.path.join(tmpdir, f), "a"): 
+                os.utime(os.path.join(tmpdir, f), (mtime, mtime))
+    # remove spurious CFLAGS added by distutils
+    config = distutils.sysconfig.get_config_vars()
+    config["CFLAGS"] = ""
+    # run distutils build_ext to build the extension module
+    distutils.core.setup(ext_modules=Cython.Build.cythonize(distutils.core.Extension( 
+                module, sources=[sys.argv[0]]), 
+            build_dir=tmpdir, quiet='VERBOSE' not in os.environ, nthreads=multiprocessing.cpu_count()), 
+        script_args=["-v" if 'VERBOSE' in os.environ else "-q", "build_ext", "-b",tmpdir, "-t","/"])
+    # move any new files back to the build path
+    for f in os.listdir(tmpdir):
+        if not os.path.exists(os.path.join(build_dir, f)) or (os.path.getmtime(os.path.join(build_dir, f)) < os.path.getmtime(os.path.join(tmpdir, f))):
+            os.rename(os.path.join(tmpdir, f), os.path.join(build_dir, f))
+# remove the temporary build directory
+finally: 
+    shutil.rmtree(tmpdir)
+# add the build path to the module load path and run the extension module
+sys.path.insert(0, os.path.abspath(build_dir))
+importlib.import_module(module)
+sys.exit(0)
