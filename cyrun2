@@ -43,6 +43,7 @@ try:
 finally: 
     shutil.rmtree(tmpdir)
 # add the build path to the module load path and run the extension module
-sys.path.insert(0, os.path.abspath(build_dir))
-importlib.import_module(module)
+if not "CHECK" in os.environ:
+    sys.path.insert(0, os.path.abspath(build_dir))
+    importlib.import_module(module)
 sys.exit(0)
