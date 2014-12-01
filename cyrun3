@@ -44,6 +44,6 @@ finally:
 # add the build path to the module load path and run the extension module
 if not "CHECK" in os.environ:
     sys.argv.pop(0)
-    sys.path.insert(0, os.path.abspath(build_dir))
+    sys.path.insert(1, os.path.abspath(build_dir))
     importlib.import_module(module)
 sys.exit(0)
