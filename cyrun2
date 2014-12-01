@@ -1,16 +1,15 @@
 #!/usr/bin/env python2
 import distutils.core, Cython.Build, importlib, os, os.path, sys, socket
 import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, platform
-# remove 0-arg
-sys.argv.pop(0)
+if len(sys.argv) <= 1: raise Exception("Usage: "+sys.argv[0]+" cython-script.pyx")
 # determine the build path for the cached extension library
 build_dir = os.path.join(
     os.environ.get("CYTHON_BIN", 
         ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
     re.sub('/', '%2F', re.sub('%', '%%', 
-        "/".join([socket.gethostname(), platform.python_version(), os.path.abspath(sys.argv[0])]))))
+        "/".join([socket.gethostname(), platform.python_version(), os.path.abspath(sys.argv[1])]))))
 # get the module name
-module = os.path.splitext(os.path.basename(sys.argv[0]))[0]
+module = os.path.splitext(os.path.basename(sys.argv[1]))[0]
 # create the build path if it doesn't already exist
 try: 
     os.makedirs(build_dir, 0o700)
@@ -32,7 +31,7 @@ try:
     config["CFLAGS"] = ""
     # run distutils build_ext to build the extension module
     distutils.core.setup(ext_modules=Cython.Build.cythonize(distutils.core.Extension( 
-                module, sources=[sys.argv[0]]), 
+                module, sources=[sys.argv[1]]), 
             build_dir=tmpdir, quiet='VERBOSE' not in os.environ, nthreads=multiprocessing.cpu_count()), 
         script_args=["-v" if 'VERBOSE' in os.environ else "-q", "build_ext", "-b",tmpdir, "-t","/"])
     # move any new files back to the build path
@@ -44,6 +43,7 @@ finally:
     shutil.rmtree(tmpdir)
 # add the build path to the module load path and run the extension module
 if not "CHECK" in os.environ:
+    sys.argv.pop(0)
     sys.path.insert(0, os.path.abspath(build_dir))
     importlib.import_module(module)
 sys.exit(0)
