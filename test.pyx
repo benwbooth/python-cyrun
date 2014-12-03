@@ -1,4 +1,4 @@
-#!/usr/bin/env cyrun3
+#!/usr/bin/env cyrun
 # #distutils: name = test
 # #distutils: sources = 
 # #distutils: define_macros = TESTMACRO
@@ -13,6 +13,7 @@
 # #distutils: export_symbols = 
 # #distutils: depends = 
 # #distutils: language = c++
+# include_path: base = src
 import sys
 cdef int i=0
 
