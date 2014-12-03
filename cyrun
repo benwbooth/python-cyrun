@@ -25,6 +25,7 @@ if conf['base'] is not None and len(conf['base'])>0:
         path = os.path.dirname(path)
     if path not in conf['ignore'] and os.path.isdir(os.path.join(path, conf['base'][0])):
         include_path.insert(0, os.path.join(path, conf['base'][0]))
+        sys.path.insert(1, os.path.join(path, conf['base'][0]))
 
 # create the build path if it doesn't already exist
 try: 
