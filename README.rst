@@ -1,4 +1,3 @@
-"""
 cyrun
 =====
 
@@ -53,17 +52,3 @@ cyrun uses the following environment variables::
 Compilation is performed using distutils and cythonize(). Modules will
 only recompile if source code timestamps are newer than the cached
 binary file.
-"""
-
-from setuptools import setup
-
-setup(name='cyrun',
-      version='0.8',
-      description='compile and run cython in one line',
-      url='https://github.com/benwbooth/python-cyrun',
-      author='Ben Booth',
-      author_email='benwbooth@gmail.com',
-      license='MIT',
-      keywords="cython python run executable",
-      zip_safe=True,
-      scripts=['cyrun'])
