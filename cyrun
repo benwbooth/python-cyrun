@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 import distutils.core, Cython.Build, Cython.Build.Dependencies, importlib, os, os.path, sys, socket
-import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, platform
+import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, sha
 import Cython.Debugger.Cygdb
 if len(sys.argv) <= 1: raise Exception("Usage: "+sys.argv[0]+" cython-script.pyx")
 # determine the build path for the cached extension library
 build_dir = os.path.join(
     os.environ.get("CYTHON_BIN", 
         ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
-    re.sub('/', '%2F', re.sub('%', '%%', 
-        "/".join([socket.gethostname(), platform.python_version(), os.path.abspath(sys.argv[1])]))))
+    sha.new(str([socket.gethostname(),
+                 distutils.sysconfig.get_python_lib(),
+                 os.path.abspath(sys.argv[1])])).hexdigest())
 module_dir = os.path.join(build_dir, "build")
 if "SKIP" not in os.environ:
     # read the include_path parameters
