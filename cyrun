@@ -4,12 +4,13 @@ import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, sha
 import Cython.Debugger.Cygdb
 if len(sys.argv) <= 1: raise Exception("Usage: "+sys.argv[0]+" cython-script.pyx")
 # determine the build path for the cached extension library
+sha_folder = sha.new(str([socket.gethostname(),
+                 distutils.sysconfig.get_python_lib(),
+                 os.path.abspath(sys.argv[1])])).hexdigest()
 build_dir = os.path.join(
     os.environ.get("CYTHON_BIN", 
         ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
-    sha.new(str([socket.gethostname(),
-                 distutils.sysconfig.get_python_lib(),
-                 os.path.abspath(sys.argv[1])])).hexdigest())
+        sha_folder[0:2], sha_folder[2:])
 module_dir = os.path.join(build_dir, "build")
 if "SKIP" not in os.environ:
     # read the include_path parameters
