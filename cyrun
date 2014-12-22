@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 import distutils.core, Cython.Build, Cython.Build.Dependencies, importlib, os, os.path, sys, socket
-import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, sha
+import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, hashlib, types
 import Cython.Debugger.Cygdb
 if len(sys.argv) <= 1: raise Exception("Usage: "+sys.argv[0]+" cython-script.pyx")
 # determine the build path for the cached extension library
-sha_folder = sha.new(str([socket.gethostname(),
+sha_folder = hashlib.sha1(str([socket.gethostname(),
                  distutils.sysconfig.get_python_lib(),
-                 os.path.abspath(sys.argv[1])])).hexdigest()
+                 os.path.abspath(sys.argv[1])]).encode('utf-8')).hexdigest()
 build_dir = os.path.join(
     os.environ.get("CYTHON_BIN", 
         ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
@@ -37,6 +37,10 @@ if "SKIP" not in os.environ:
     # create the temp build directory as a subdirectory of the build path
     tmpdir = tempfile.mkdtemp(dir=build_dir)
     try:
+        # symlink or copy the source file over 
+        source_file = os.path.join(tmpdir, "__main__.pyx")
+        try: os.symlink(os.path.abspath(sys.argv[1]), source_file)
+        except: shutil.copy2(sys.argv[1], source_file)
         # make empty files in the temp build directory with the correct mtime to avoid
         # rebuilding every time
         for dirpath, dirnames, filenames in os.walk(module_dir):
@@ -54,7 +58,7 @@ if "SKIP" not in os.environ:
         config["CFLAGS"] = ""
         # run distutils build_ext to build the extension module
         distutils.core.setup(ext_modules=Cython.Build.cythonize(distutils.core.Extension( 
-                    "__main__", sources=[sys.argv[1]]), 
+                '__main__', sources=[source_file]), 
                 build_dir=tmpdir,
                 output_dir=tmpdir,
                 quiet='VERBOSE' not in os.environ,
@@ -89,5 +93,13 @@ if "CHECK" not in os.environ:
     else: 
         sys.argv.pop(0)
         sys.path.insert(1, os.path.abspath(module_dir))
-        importlib.import_module("__main__")
+        if sys.version_info[0] < 3:
+            # trick python 2 into running a module called __main__
+            import imp
+            config = distutils.sysconfig.get_config_vars()
+            path = os.path.join(module_dir, '__main__'+config['SO'])
+            with open(path) as file:
+                imp.load_module('__main__', file, path, (config['SO'], 'rb', imp.C_EXTENSION))
+        else:
+            importlib.reload(importlib.import_module('__main__'))
 sys.exit(0)

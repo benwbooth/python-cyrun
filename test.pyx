@@ -14,8 +14,6 @@
 # #distutils: depends = 
 # #distutils: language = c++
 # include_path: base = src
-import sys
-cdef int i=0
 
-i += 1
-print("Hello World! "+str(sys.argv))
+cdef int i=0
+print ("name is {}".format(__name__))
