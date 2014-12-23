@@ -5,6 +5,8 @@ import Cython.Debugger.Cygdb
 if len(sys.argv) <= 1: raise Exception("Usage: "+sys.argv[0]+" cython-script.pyx")
 # determine the build path for the cached extension library
 sha_folder = hashlib.sha1(str([socket.gethostname(),
+                 sys.version,
+                 sys.executable,
                  distutils.sysconfig.get_python_lib(),
                  os.path.abspath(sys.argv[1])]).encode('utf-8')).hexdigest()
 build_dir = os.path.join(
