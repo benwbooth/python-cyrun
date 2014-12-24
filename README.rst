@@ -49,7 +49,7 @@ instead of just variable names. Please note that only expressions are
 allowed, not statements. Also, you'll have to avoid using double quotes
 and curly braces within the templates, as escaping doesn't work well. Use
 single quotes for strings and dict() for dictionaries if you need
-them. See `interpolate docs <details on the syntax.>` and `interpolate
+them. See `interpolate docs <http://edk141.co.uk/a/interpolate>` and `interpolate
 PyPI page <https://pypi.python.org/pypi/interpolate>` for more details.
 
 cyrun stores compiled cython libraries in a cache folder::
