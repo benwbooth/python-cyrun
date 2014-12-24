@@ -33,6 +33,24 @@ cyrun also adds the following metadata for searching for project-level module fo
     # cyrun: realpath = # if the script is a symlink, resolve it to the
       real path before searching
     # cyrun: ignore = # ignore certain folder names during the search
+    # cyrun: interpolate = True # enable string interpolation for metadata strings
+
+If the interpolate options is set, cython will enable string interpolation
+using the `interpolate module <https://pypi.python.org/pypi/interpolate>`
+on all the distutils metadata fields. This allows setting fields such
+as include_dir dynamically, e.g.::
+
+    # cyrun: interpolate = True
+    # distutils: include_dirs = "{__import__('mymodule').__path__[0]}"
+
+The interpolate module uses curly braces for templating, the same as
+string.format(), except you are allowed to embed a python expression
+instead of just variable names. Please note that only expressions are
+allowed, not statements. Also, you'll have to avoid using double quotes
+and curly braces within the templates, as escaping doesn't work well. Use
+single quotes for strings and dict() for dictionaries if you need
+them. See `interpolate docs <details on the syntax.>` and `interpolate
+PyPI page <https://pypi.python.org/pypi/interpolate>` for more details.
 
 cyrun stores compiled cython libraries in a cache folder::
 
