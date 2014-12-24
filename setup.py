@@ -76,7 +76,7 @@ binary file.
 from setuptools import setup
 
 setup(name='cyrun',
-      version='0.16',
+      version='0.17',
       description='compile and run cython in one line',
       url='https://github.com/benwbooth/python-cyrun',
       author='Ben Booth',
