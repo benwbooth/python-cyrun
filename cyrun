@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!usr/bin/env python
 import distutils.core, Cython.Build, Cython.Build.Dependencies, importlib, os, os.path, sys, socket
 import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, hashlib, types
-import Cython.Debugger.Cygdb
+import Cython.Debugger.Cygdb, interpolate
 if len(sys.argv) <= 1: raise Exception("Usage: "+sys.argv[0]+" cython-script.pyx")
 # determine the build path for the cached extension library
 sha_folder = hashlib.sha1(str([socket.gethostname(),
@@ -14,15 +14,19 @@ build_dir = os.path.join(
         ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
         sha_folder[0:2], sha_folder[2:])
 module_dir = os.path.join(build_dir, "build")
+conf = {'realpath': [True], 'base': None, 'ignore': [], 'interpolate': False}
 if "SKIP" not in os.environ:
     # read the include_path parameters
-    conf = {'realpath': [True], 'base': None, 'ignore': []}
     include_path = ['.']
     with open(sys.argv[1]) as f:
         for line in f:
             if not re.search(r'^#', line): break
             m = re.search(r'^#\s*cyrun\s*:([^=]+)=(.*)$', line)
-            if m: conf[m.group(1).strip()] = Cython.Build.Dependencies.parse_list(m.group(2).strip())
+            if m:
+                key = m.group(1).strip()
+                value = m.group(2).strip()
+                if len(key)>0 and len(value)>0: 
+                    conf[m.group(1).strip()] = Cython.Build.Dependencies.parse_list(m.group(2).strip())
     # find the include_path location if base is specified
     if conf['base'] is not None and len(conf['base'])>0:
         path = os.path.dirname(os.path.realpath(sys.argv[1]) if conf['realpath'][0] else os.path.abspath(sys.argv[1]))
@@ -58,17 +62,32 @@ if "SKIP" not in os.environ:
         # remove spurious CFLAGS added by distutils
         config = distutils.sysconfig.get_config_vars()
         config["CFLAGS"] = ""
+        # configure the extension module
+        extensions = Cython.Build.cythonize(
+            distutils.core.Extension('__main__', sources=[source_file]), 
+            build_dir=tmpdir,
+            output_dir=tmpdir,
+            quiet='VERBOSE' not in os.environ,
+            nthreads=multiprocessing.cpu_count(),
+            include_path=include_path,
+            force='FORCE' in os.environ,
+            gdb_debug='DEBUG' in os.environ)
+        # use string interpolation on the extension settings to provide more flexibility
+        if conf.get('interpolate') and conf['interpolate'][0].lower() not in ('false','no','f','n',''):
+            for extension in extensions:
+                for key in Cython.Build.Dependencies.distutils_settings.keys():
+                    if hasattr(extension, key):
+                        value = getattr(extension, key)
+                        if isinstance(value, list) or isinstance(value, tuple):
+                            for i, s in enumerate(value):
+                                if isinstance(s, str): 
+                                    value[i] = interpolate.i.interpolate(s)
+                        elif isinstance(value, str): 
+                            setattr(extension, key, interpolate.i.interpolate(value))
         # run distutils build_ext to build the extension module
-        distutils.core.setup(ext_modules=Cython.Build.cythonize(distutils.core.Extension( 
-                '__main__', sources=[source_file]), 
-                build_dir=tmpdir,
-                output_dir=tmpdir,
-                quiet='VERBOSE' not in os.environ,
-                nthreads=multiprocessing.cpu_count(),
-                include_path=include_path,
-                force='FORCE' in os.environ,
-                gdb_debug='DEBUG' in os.environ), 
-            script_args=["-v" if 'VERBOSE' in os.environ else "-q", "build_ext", "-b",tmpdir, "-t","/"])
+        distutils.core.setup(ext_modules=extensions, 
+            script_args=["-v" if 'VERBOSE' in os.environ else "-q", 
+            "build_ext", "-b",tmpdir, "-t","/"])
         # move any updated files back to the build path
         for dirpath, dirnames, filenames in os.walk(tmpdir):
             dir = os.path.join(module_dir, os.path.relpath(dirpath, tmpdir))

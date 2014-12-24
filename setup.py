@@ -58,7 +58,7 @@ binary file.
 from setuptools import setup
 
 setup(name='cyrun',
-      version='0.12',
+      version='0.13',
       description='compile and run cython in one line',
       url='https://github.com/benwbooth/python-cyrun',
       author='Ben Booth',
@@ -66,4 +66,5 @@ setup(name='cyrun',
       license='MIT',
       keywords="cython python run executable",
       zip_safe=True,
+      install_requires=['interpolate'],
       scripts=['cyrun'])
