@@ -14,7 +14,7 @@ build_dir = os.path.join(
         ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
         sha_folder[0:2], sha_folder[2:])
 module_dir = os.path.join(build_dir, "build")
-conf = {'realpath': [True], 'base': None, 'ignore': [], 'interpolate': False}
+conf = {'realpath': [True], 'base': None, 'ignore': []}
 interp_lines = ''
 if "SKIP" not in os.environ:
     # read the include_path parameters
