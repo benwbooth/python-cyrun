@@ -15,12 +15,19 @@ build_dir = os.path.join(
         sha_folder[0:2], sha_folder[2:])
 module_dir = os.path.join(build_dir, "build")
 conf = {'realpath': [True], 'base': None, 'ignore': [], 'interpolate': False}
+interp_lines = ''
 if "SKIP" not in os.environ:
     # read the include_path parameters
     include_path = ['.']
     with open(sys.argv[1]) as f:
         for line in f:
             if not re.search(r'^#', line): break
+            # add lines for interpolation
+            m = re.search(r'^#\s*interpolate:(.*)$', line)
+            if m: 
+                line = '# '+interpolate.i.interpolate(m.group(1).strip())+'\n'
+                interp_lines += line
+            # search for cyrun-specific info settings
             m = re.search(r'^#\s*cyrun\s*:([^=]+)=(.*)$', line)
             if m:
                 key = m.group(1).strip()
@@ -73,17 +80,11 @@ if "SKIP" not in os.environ:
             force='FORCE' in os.environ,
             gdb_debug='DEBUG' in os.environ)
         # use string interpolation on the extension settings to provide more flexibility
-        if conf.get('interpolate') and conf['interpolate'][0].lower() not in ('false','no','f','n',''):
+        if len(interp_lines)>0:
+            if 'VERBOSE' in os.environ: print("Interpolated settings:\n{}".format(interp_lines), file=sys.stderr)
+            info = Cython.Build.Dependencies.DistutilsInfo(source=interp_lines)
             for extension in extensions:
-                for key in Cython.Build.Dependencies.distutils_settings.keys():
-                    if hasattr(extension, key):
-                        value = getattr(extension, key)
-                        if isinstance(value, list) or isinstance(value, tuple):
-                            for i, s in enumerate(value):
-                                if isinstance(s, str): 
-                                    value[i] = interpolate.i.interpolate(s)
-                        elif isinstance(value, str): 
-                            setattr(extension, key, interpolate.i.interpolate(value))
+                info.apply(extension)
         # run distutils build_ext to build the extension module
         distutils.core.setup(ext_modules=extensions, 
             script_args=["-v" if 'VERBOSE' in os.environ else "-q", 

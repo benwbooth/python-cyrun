@@ -34,15 +34,15 @@ cyrun also adds the following metadata for searching for project-level module fo
     # cyrun: realpath = # if the script is a symlink, resolve it to the
       real path before searching
     # cyrun: ignore = # ignore certain folder names during the search
-    # cyrun: interpolate = True # enable string interpolation for metadata strings
 
-If the interpolate options is set, cython will enable string interpolation
-using the `interpolate module <https://pypi.python.org/pypi/interpolate>`
-on all the distutils metadata fields. This allows setting fields such
-as include_dir dynamically, e.g.::
+If the setting begins with "interpolate:", then cython
+will enable string interpolation using the `interpolate module
+<https://pypi.python.org/pypi/interpolate>` on all the distutils metadata
+fields. This allows setting fields such as include_dir dynamically, e.g.::
 
-    # cyrun: interpolate = True
-    # distutils: include_dirs = "{__import__('mymodule').__path__[0]}"
+    # interpolate: distutils: include_dirs = {__import__('pysam').get_include()}
+    # interpolate: distutils: extra_link_args = {__import__('pysam').get_libraries()}
+    # interpolate: distutils: define_macros = {['%s=%s' % (d[0],d[1]) for d in __import__('pysam').get_defines()]}
 
 The interpolate module uses curly braces for templating, the same as
 string.format(), except you are allowed to embed a python expression
@@ -76,7 +76,7 @@ binary file.
 from setuptools import setup
 
 setup(name='cyrun',
-      version='0.15',
+      version='0.16',
       description='compile and run cython in one line',
       url='https://github.com/benwbooth/python-cyrun',
       author='Ben Booth',
