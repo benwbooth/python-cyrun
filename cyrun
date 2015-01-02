@@ -12,7 +12,9 @@ parser.add_argument('-d', '--debug', help='Run the script in the cython debugger
 parser.add_argument('-p', '--path', help='Change the path for storing the cached cython binaries', action='store', dest='path', default=None)
 parser.add_argument('--debugging', help=argparse.SUPPRESS, action='store_true', dest='debugging', default=False)
 args = parser.parse_args(shlex.split(os.environ.get('CYRUN','')))
-if len(sys.argv) <= 1: parser.print_help()
+if len(sys.argv) <= 1: 
+    parser.print_help()
+    sys.exit(1)
 
 # determine the build path for the cached extension library
 sha_folder = hashlib.sha1(str([socket.gethostname(),
