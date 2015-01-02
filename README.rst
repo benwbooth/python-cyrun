@@ -5,6 +5,7 @@ cyrun allows you to write cython code that runs like a scripting language,
 with compilation happening in the background. Here is an example:
 
 .. code-block:: python
+
     #!/usr/bin/env cyrun
     print("Hello World!")
 
