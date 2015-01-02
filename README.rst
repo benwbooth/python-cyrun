@@ -38,8 +38,8 @@ cyrun also adds the following metadata for searching for project-level module fo
 
 If the setting begins with "interpolate:", then cython
 will enable string interpolation using the `interpolate module
-<https://pypi.python.org/pypi/interpolate>` on all the distutils metadata
-fields. This allows setting fields such as include_dir dynamically, e.g.::
+<https://pypi.python.org/pypi/interpolate>`.  This allows setting fields 
+such as include_dir dynamically, e.g.::
 
     # interpolate: distutils: include_dirs = {__import__('pysam').get_include()}
     # interpolate: distutils: extra_link_args = {__import__('pysam').get_libraries()}
