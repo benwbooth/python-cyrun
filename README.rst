@@ -53,9 +53,9 @@ single quotes for strings and dict() for dictionaries if you need
 them. See `interpolate docs <http://edk141.co.uk/a/interpolate>` and `interpolate
 PyPI page <https://pypi.python.org/pypi/interpolate>` for more details.
 
-cyrun uses the CYRUN environment variables to pass in arguments as
-a shell-escaped string. Here are the arguments cyrun accepts via the
-CYRUN string::
+cyrun can take several command-line arguments before the script arguments.
+cyrun can also read the CYRUN environment variable to pass in arguments as a
+shell-escaped string. Here are the arguments cyrun accepts::
 
     -h, --help            show this help message and exit
     -v, --verbose         Show compiler output

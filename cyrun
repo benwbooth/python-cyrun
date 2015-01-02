@@ -11,8 +11,9 @@ parser.add_argument('-f', '--force', help='Force compilation even if the compile
 parser.add_argument('-d', '--debug', help='Run the script in the cython debugger', action='store_true', dest='debug', default=False)
 parser.add_argument('-p', '--path', help='Change the path for storing the cached cython binaries', action='store', dest='path', default=None)
 parser.add_argument('--debugging', help=argparse.SUPPRESS, action='store_true', dest='debugging', default=False)
-args = parser.parse_args(shlex.split(os.environ.get('CYRUN','')))
-if len(sys.argv) <= 1: 
+parser.add_argument('argv', help='Cython script file to run, plus its arguments', nargs=argparse.REMAINDER, action="store")
+args = parser.parse_args((shlex.split(os.environ['CYRUN']) if 'CYRUN' in os.environ else [])+sys.argv[1:])
+if len(args.argv) == 0: 
     parser.print_help()
     sys.exit(1)
 
@@ -21,7 +22,7 @@ sha_folder = hashlib.sha1(str([socket.gethostname(),
                  sys.version,
                  sys.executable,
                  distutils.sysconfig.get_python_lib(),
-                 os.path.abspath(sys.argv[1])]).encode('utf-8')).hexdigest()
+                 os.path.abspath(args.argv[0])]).encode('utf-8')).hexdigest()
 build_dir = os.path.join(
     args.path or (".cyrun" if os.path.exists(".cyrun") else os.path.expanduser("~/.cache/cyrun")),
         sha_folder[0:2], sha_folder[2:])
@@ -31,7 +32,7 @@ interp_lines = ''
 if not args.skip and not args.debugging:
     # read the include_path parameters
     include_path = ['.']
-    with open(sys.argv[1]) as f:
+    with open(args.argv[0]) as f:
         for line in f:
             if not re.search(r'^#', line): break
             # add lines for interpolation
@@ -48,7 +49,7 @@ if not args.skip and not args.debugging:
                     conf[m.group(1).strip()] = Cython.Build.Dependencies.parse_list(m.group(2).strip())
     # find the include_path location if base is specified
     if conf['base'] is not None and len(conf['base'])>0:
-        path = os.path.dirname(os.path.realpath(sys.argv[1]) if conf['realpath'][0] else os.path.abspath(sys.argv[1]))
+        path = os.path.dirname(os.path.realpath(args.argv[0]) if conf['realpath'][0] else os.path.abspath(args.argv[0]))
         while os.path.dirname(path) != path and (path in conf['ignore'] or not os.path.isdir(os.path.join(path, conf['base'][0]))):
             path = os.path.dirname(path)
         if path not in conf['ignore'] and os.path.isdir(os.path.join(path, conf['base'][0])):
@@ -64,8 +65,8 @@ if not args.skip and not args.debugging:
     try:
         # symlink or copy the source file over 
         source_file = os.path.join(tmpdir, "__main__.pyx")
-        try: os.symlink(os.path.abspath(sys.argv[1]), source_file)
-        except: shutil.copy2(sys.argv[1], source_file)
+        try: os.symlink(os.path.abspath(args.argv[0]), source_file)
+        except: shutil.copy2(args.argv[0], source_file)
         # make empty files in the temp build directory with the correct mtime to avoid
         # rebuilding every time
         for dirpath, dirnames, filenames in os.walk(module_dir):
@@ -119,12 +120,12 @@ if not args.skip and not args.debugging:
 # add the build path to the module load path and run the extension module
 if not args.check:
     if args.debug and not args.debugging:
-        os.environ['CYRUN'] = '--debugging'+(' '+os.environ['CYRUN'] if 'CYRUN' in os.environ else '')
-        sys.argv[0] = os.path.abspath(sys.argv[0])
-        sys.argv[0:0] = ["cygdb"]+(["-vv"] if args.verbose else [])+[os.path.abspath(module_dir), "--", "--args", sys.executable]
+        sys.argv[:] = (["cygdb"]+(["-vv"] if args.verbose else [])+
+                       [os.path.abspath(module_dir), "--", "--args", sys.executable, os.path.abspath(sys.argv[0]), '--debugging']+
+                       sys.argv[1:])
         sys.exit(Cython.Debugger.Cygdb.main())
     else: 
-        sys.argv.pop(0)
+        sys.argv[:] = args.argv
         sys.path.insert(1, os.path.abspath(module_dir))
         if sys.version_info[0] < 3:
             # trick python 2 into running a module called __main__

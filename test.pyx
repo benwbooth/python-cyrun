@@ -15,5 +15,8 @@
 # #distutils: language = c++
 # include_path: base = src
 
+import sys
+
 cdef int i=0
 print ("name is {}".format(__name__))
+print ("sys.argv= "+str(sys.argv))
