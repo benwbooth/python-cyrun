@@ -94,7 +94,6 @@ if not args.skip and not args.debugging:
             gdb_debug=args.debug)
         # use string interpolation on the extension settings to provide more flexibility
         if len(interp_lines)>0:
-            if args.verbose: print("Interpolated settings:\n{}".format(interp_lines), file=sys.stderr)
             info = Cython.Build.Dependencies.DistutilsInfo(source=interp_lines)
             for extension in extensions:
                 info.apply(extension)
