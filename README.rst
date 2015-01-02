@@ -5,7 +5,6 @@ cyrun allows you to write cython code that runs like a scripting language,
 with compilation happening in the background. Here is an example:
 
 .. code-block:: python
-
     #!/usr/bin/env cyrun
     print("Hello World!")
 
@@ -54,20 +53,24 @@ single quotes for strings and dict() for dictionaries if you need
 them. See `interpolate docs <http://edk141.co.uk/a/interpolate>` and `interpolate
 PyPI page <https://pypi.python.org/pypi/interpolate>` for more details.
 
+cyrun uses the CYRUN environment variables to pass in arguments as
+a shell-escaped string. Here are the arguments cyrun accepts via the
+CYRUN string::
+
+    -h, --help            show this help message and exit
+    -v, --verbose         Show compiler output
+    -s, --skip            Skip compilation step
+    -c, --check           Just syntax check and compile, don't run the script
+    -f, --force           Force compilation even if the compiled binary is up-
+                            to-date
+    -d, --debug           Run the script in the cython debugger
+    -p PATH, --path PATH  Change the path for storing the cached cython binaries
+
 cyrun stores compiled cython libraries in a cache folder::
 
-    - if CYTHON_BIN environment variable is set, use that folder
-    - otherwise, if there is a .cython folder in the script folder, use that
-    - otherwise, set it to ~/.cache/cython
-
-cyrun uses the following environment variables::
-
-    CYTHON_BIN - optional path to cached cython binaries
-    SKIP - if set, skip compilation step
-    CHECK - if set, don't run the module after the build step
-    VERBOSE - if set, enable verbose build output
-    FORCE - if set, force compilation
-    DEBUG - if set, run cygdb debugger on the compiled script
+    - if PATH argument is set in the CYRUN variable, use that folder
+    - otherwise, if there is a .cyrun folder in the script folder, use that
+    - otherwise, set it to ~/.cache/cyrun
 
 Compilation is performed using distutils and cythonize(). Modules will
 only recompile if source code timestamps are newer than the cached

@@ -1,8 +1,19 @@
-#!usr/bin/env python
+#!/usr/bin/env python
 import distutils.core, Cython.Build, Cython.Build.Dependencies, importlib, os, os.path, sys, socket
 import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, hashlib, types
-import Cython.Debugger.Cygdb, interpolate
-if len(sys.argv) <= 1: raise Exception("Usage: "+sys.argv[0]+" cython-script.pyx")
+import Cython.Debugger.Cygdb, argparse, shlex, interpolate
+
+parser = argparse.ArgumentParser(description='Run cython scripts on the command-line. Commands are passed to cyrun using the CYRUN environment variable.')
+parser.add_argument('-v', '--verbose', help='Show compiler output', action='store_true', dest='verbose', default=False)
+parser.add_argument('-s', '--skip', help='Skip compilation step', action='store_true', dest='skip', default=False)
+parser.add_argument('-c', '--check', help='Just syntax check and compile, don\'t run the script', action='store_true', dest='check', default=False)
+parser.add_argument('-f', '--force', help='Force compilation even if the compiled binary is up-to-date', action='store_true', dest='force', default=False)
+parser.add_argument('-d', '--debug', help='Run the script in the cython debugger', action='store_true', dest='debug', default=False)
+parser.add_argument('-p', '--path', help='Change the path for storing the cached cython binaries', action='store', dest='path', default=None)
+parser.add_argument('--debugging', help=argparse.SUPPRESS, action='store_true', dest='debugging', default=False)
+args = parser.parse_args(shlex.split(os.environ.get('CYRUN','')))
+if len(sys.argv) <= 1: parser.print_help()
+
 # determine the build path for the cached extension library
 sha_folder = hashlib.sha1(str([socket.gethostname(),
                  sys.version,
@@ -10,13 +21,12 @@ sha_folder = hashlib.sha1(str([socket.gethostname(),
                  distutils.sysconfig.get_python_lib(),
                  os.path.abspath(sys.argv[1])]).encode('utf-8')).hexdigest()
 build_dir = os.path.join(
-    os.environ.get("CYTHON_BIN", 
-        ".cython" if os.path.exists(".cython") else os.path.expanduser("~/.cache/cython")),
+    args.path or (".cyrun" if os.path.exists(".cyrun") else os.path.expanduser("~/.cache/cyrun")),
         sha_folder[0:2], sha_folder[2:])
 module_dir = os.path.join(build_dir, "build")
 conf = {'realpath': [True], 'base': None, 'ignore': []}
 interp_lines = ''
-if "SKIP" not in os.environ:
+if not args.skip and not args.debugging:
     # read the include_path parameters
     include_path = ['.']
     with open(sys.argv[1]) as f:
@@ -74,20 +84,20 @@ if "SKIP" not in os.environ:
             distutils.core.Extension('__main__', sources=[source_file]), 
             build_dir=tmpdir,
             output_dir=tmpdir,
-            quiet='VERBOSE' not in os.environ,
+            quiet=not args.verbose,
             nthreads=multiprocessing.cpu_count(),
             include_path=include_path,
-            force='FORCE' in os.environ,
-            gdb_debug='DEBUG' in os.environ)
+            force=args.force,
+            gdb_debug=args.debug)
         # use string interpolation on the extension settings to provide more flexibility
         if len(interp_lines)>0:
-            if 'VERBOSE' in os.environ: print("Interpolated settings:\n{}".format(interp_lines), file=sys.stderr)
+            if args.verbose: print("Interpolated settings:\n{}".format(interp_lines), file=sys.stderr)
             info = Cython.Build.Dependencies.DistutilsInfo(source=interp_lines)
             for extension in extensions:
                 info.apply(extension)
         # run distutils build_ext to build the extension module
         distutils.core.setup(ext_modules=extensions, 
-            script_args=["-v" if 'VERBOSE' in os.environ else "-q", 
+            script_args=["-v" if args.verbose else "-q", 
             "build_ext", "-b",tmpdir, "-t","/"])
         # move any updated files back to the build path
         for dirpath, dirnames, filenames in os.walk(tmpdir):
@@ -105,12 +115,11 @@ if "SKIP" not in os.environ:
     finally: 
         shutil.rmtree(tmpdir)
 # add the build path to the module load path and run the extension module
-if "CHECK" not in os.environ:
-    if "DEBUG" in os.environ:
-        del os.environ["DEBUG"]
-        os.environ["SKIP"] = ""
+if not args.check:
+    if args.debug and not args.debugging:
+        os.environ['CYRUN'] = '--debugging'+(' '+os.environ['CYRUN'] if 'CYRUN' in os.environ else '')
         sys.argv[0] = os.path.abspath(sys.argv[0])
-        sys.argv[0:0] = ["cygdb"]+(["-vv"] if "VERBOSE" in os.environ else [])+[os.path.abspath(module_dir), "--", "--args", sys.executable]
+        sys.argv[0:0] = ["cygdb"]+(["-vv"] if args.verbose else [])+[os.path.abspath(module_dir), "--", "--args", sys.executable]
         sys.exit(Cython.Debugger.Cygdb.main())
     else: 
         sys.argv.pop(0)
