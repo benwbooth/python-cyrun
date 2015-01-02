@@ -69,7 +69,7 @@ shell-escaped string. Here are the arguments cyrun accepts::
 
 cyrun stores compiled cython libraries in a cache folder::
 
-    - if PATH argument is set in the CYRUN variable, use that folder
+    - if PATH argument is set, use that folder
     - otherwise, if there is a .cyrun folder in the script folder, use that
     - otherwise, set it to ~/.cache/cyrun
 
