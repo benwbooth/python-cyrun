@@ -4,7 +4,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as doc:
 
 setuptools.setup(
     name='cyrun',
-    version='0.23',
+    version='0.24',
     description='compile and run cython in one line',
     url='https://github.com/benwbooth/python-cyrun',
     author='Ben Booth',
