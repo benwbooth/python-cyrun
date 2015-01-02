@@ -3,7 +3,7 @@ import distutils.core, Cython.Build, Cython.Build.Dependencies, importlib, os, o
 import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, hashlib, types
 import Cython.Debugger.Cygdb, argparse, shlex, interpolate
 
-parser = argparse.ArgumentParser(description='Run cython scripts on the command-line. Commands are passed to cyrun using the CYRUN environment variable.')
+parser = argparse.ArgumentParser(description='Run cython scripts on the command-line.')
 parser.add_argument('-v', '--verbose', help='Show compiler output', action='store_true', dest='verbose', default=False)
 parser.add_argument('-s', '--skip', help='Skip compilation step', action='store_true', dest='skip', default=False)
 parser.add_argument('-c', '--check', help='Just syntax check and compile, don\'t run the script', action='store_true', dest='check', default=False)
