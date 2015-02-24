@@ -1,138 +1,142 @@
 #!/usr/bin/env python
 import distutils.core, Cython.Build, Cython.Build.Dependencies, importlib, os, os.path, sys, socket
 import multiprocessing, distutils.sysconfig, errno, shutil, tempfile, re, hashlib, types
-import Cython.Debugger.Cygdb, argparse, shlex, interpolate
+import Cython.Debugger.Cygdb, argparse, shlex, interpolate, imp
 
 parser = argparse.ArgumentParser(description='Run cython scripts on the command-line.')
 parser.add_argument('-v', '--verbose', help='Show compiler output', action='store_true', dest='verbose', default=False)
-parser.add_argument('-s', '--skip', help='Skip compilation step', action='store_true', dest='skip', default=False)
+parser.add_argument('-s', '--skip', help='Skip compilation step', action='store_true', dest='skip', default=True)
 parser.add_argument('-c', '--check', help='Just syntax check and compile, don\'t run the script', action='store_true', dest='check', default=False)
 parser.add_argument('-f', '--force', help='Force compilation even if the compiled binary is up-to-date', action='store_true', dest='force', default=False)
 parser.add_argument('-d', '--debug', help='Run the script in the cython debugger', action='store_true', dest='debug', default=False)
 parser.add_argument('-p', '--path', help='Change the path for storing the cached cython binaries', action='store', dest='path', default=None)
 parser.add_argument('--debugging', help=argparse.SUPPRESS, action='store_true', dest='debugging', default=False)
 parser.add_argument('argv', help='Cython script file to run, plus its arguments', nargs=argparse.REMAINDER, action="store")
-args = parser.parse_args((shlex.split(os.environ['CYRUN']) if 'CYRUN' in os.environ else [])+sys.argv[1:])
-if len(args.argv) == 0: 
+argv = (shlex.split(os.environ['CYRUN']) if 'CYRUN' in os.environ else [])+sys.argv[1:]
+if len(argv) == 0: 
     parser.print_help()
     sys.exit(1)
+args = parser.parse_args(argv)
 
-# determine the build path for the cached extension library
-sha_folder = hashlib.sha1(str([socket.gethostname(),
-                 sys.version,
-                 sys.executable,
-                 distutils.sysconfig.get_python_lib(),
-                 os.path.abspath(args.argv[0])]).encode('utf-8')).hexdigest()
-build_dir = os.path.join(
-    args.path or (".cyrun" if os.path.exists(".cyrun") else os.path.expanduser("~/.cache/cyrun")),
-        sha_folder[0:2], sha_folder[2:])
-module_dir = os.path.join(build_dir, "build")
-conf = {'realpath': [True], 'base': None, 'ignore': []}
-interp_lines = ''
-if not args.skip and not args.debugging:
-    # read the include_path parameters
-    include_path = ['.']
-    with open(args.argv[0]) as f:
-        for line in f:
-            if not re.search(r'^#', line): break
-            # add lines for interpolation
-            m = re.search(r'^#\s*interpolate:(.*)$', line)
-            if m: 
-                line = '# '+interpolate.i.interpolate(m.group(1).strip())+'\n'
-                interp_lines += line
-            # search for cyrun-specific info settings
-            m = re.search(r'^#\s*cyrun\s*:([^=]+)=(.*)$', line)
-            if m:
-                key = m.group(1).strip()
-                value = m.group(2).strip()
-                if len(key)>0 and len(value)>0: 
-                    conf[m.group(1).strip()] = Cython.Build.Dependencies.parse_list(m.group(2).strip())
-    # find the include_path location if base is specified
-    if conf['base'] is not None and len(conf['base'])>0:
-        path = os.path.dirname(os.path.realpath(args.argv[0]) if conf['realpath'][0] else os.path.abspath(args.argv[0]))
-        while os.path.dirname(path) != path and (path in conf['ignore'] or not os.path.isdir(os.path.join(path, conf['base'][0]))):
-            path = os.path.dirname(path)
-        if path not in conf['ignore'] and os.path.isdir(os.path.join(path, conf['base'][0])):
-            include_path.insert(0, os.path.join(path, conf['base'][0]))
-            sys.path.insert(1, os.path.join(path, conf['base'][0]))
+while True:
+    # determine the build path for the cached extension library
+    sha_folder = hashlib.sha1(str([socket.gethostname(),
+                    sys.version,
+                    sys.executable,
+                    distutils.sysconfig.get_python_lib(),
+                    os.path.abspath(args.argv[0])]).encode('utf-8')).hexdigest()
+    build_dir = os.path.join(
+        args.path or (".cyrun" if os.path.exists(".cyrun") else os.path.expanduser("~/.cache/cyrun")),
+            sha_folder[0:2], sha_folder[2:])
+    module_dir = os.path.join(build_dir, "build")
+    conf = {'realpath': [True], 'base': None, 'ignore': []}
+    if not args.skip and not args.debugging:
+        interp_lines = ''
+        # read the include_path parameters
+        include_path = ['.']
+        with open(args.argv[0]) as f:
+            for line in f:
+                if not re.search(r'^#', line): break
+                # add lines for interpolation
+                m = re.search(r'^#\s*interpolate:(.*)$', line)
+                if m: 
+                    line = '# '+interpolate.i.interpolate(m.group(1).strip())+'\n'
+                    interp_lines += line
+                # search for cyrun-specific info settings
+                m = re.search(r'^#\s*cyrun\s*:([^=]+)=(.*)$', line)
+                if m:
+                    key = m.group(1).strip()
+                    value = m.group(2).strip()
+                    if len(key)>0 and len(value)>0: 
+                        conf[m.group(1).strip()] = Cython.Build.Dependencies.parse_list(m.group(2).strip())
+        # find the include_path location if base is specified
+        if conf['base'] is not None and len(conf['base'])>0:
+            path = os.path.dirname(os.path.realpath(args.argv[0]) if conf['realpath'][0] else os.path.abspath(args.argv[0]))
+            while os.path.dirname(path) != path and (path in conf['ignore'] or not os.path.isdir(os.path.join(path, conf['base'][0]))):
+                path = os.path.dirname(path)
+            if path not in conf['ignore'] and os.path.isdir(os.path.join(path, conf['base'][0])):
+                include_path.insert(0, os.path.join(path, conf['base'][0]))
+                sys.path.insert(1, os.path.join(path, conf['base'][0]))
 
-    # create the build path if it doesn't already exist
-    try: os.makedirs(module_dir, 0o700)
-    except OSError as e: 
-        if e.errno != errno.EEXIST: raise
-    # create the temp build directory as a subdirectory of the build path
-    tmpdir = tempfile.mkdtemp(dir=build_dir)
-    try:
-        # symlink or copy the source file over 
-        source_file = os.path.join(tmpdir, "__main__.pyx")
-        try: os.symlink(os.path.abspath(args.argv[0]), source_file)
-        except: shutil.copy2(args.argv[0], source_file)
-        # make empty files in the temp build directory with the correct mtime to avoid
-        # rebuilding every time
-        for dirpath, dirnames, filenames in os.walk(module_dir):
-            dir = os.path.join(tmpdir, os.path.relpath(dirpath, module_dir))
-            try: os.makedirs(dir, 0o700)
-            except OSError as e: 
-                if e.errno != errno.EEXIST: raise
+        # create the build path if it doesn't already exist
+        try: os.makedirs(module_dir, 0o700)
+        except OSError as e: 
+            if e.errno != errno.EEXIST: raise
+        # create the temp build directory as a subdirectory of the build path
+        tmpdir = tempfile.mkdtemp(dir=build_dir)
+        try:
+            # make empty files in the temp build directory with the correct mtime to avoid
+            # rebuilding every time
+            for dirpath, dirnames, filenames in os.walk(module_dir):
+                dir = os.path.join(tmpdir, os.path.relpath(dirpath, module_dir))
+                try: os.makedirs(dir, 0o700)
+                except OSError as e: 
+                    if e.errno != errno.EEXIST: raise
 
-            for f in filenames:
-                file = os.path.relpath(os.path.join(dirpath, f), module_dir)
-                mtime = os.path.getmtime(os.path.join(module_dir, file))
-                with open(os.path.join(tmpdir, file), "a"): os.utime(os.path.join(tmpdir, file), (mtime, mtime))
-        # remove spurious CFLAGS added by distutils
-        config = distutils.sysconfig.get_config_vars()
-        config["CFLAGS"] = ""
-        # configure the extension module
-        extensions = Cython.Build.cythonize(
-            distutils.core.Extension('__main__', sources=[source_file]), 
-            build_dir=tmpdir,
-            output_dir=tmpdir,
-            quiet=not args.verbose,
-            nthreads=multiprocessing.cpu_count(),
-            include_path=include_path,
-            force=args.force,
-            gdb_debug=args.debug)
-        # use string interpolation on the extension settings to provide more flexibility
-        if len(interp_lines)>0:
-            info = Cython.Build.Dependencies.DistutilsInfo(source=interp_lines)
-            for extension in extensions:
+                for f in filenames:
+                    file = os.path.relpath(os.path.join(dirpath, f), module_dir)
+                    mtime = os.path.getmtime(os.path.join(module_dir, file))
+                    with open(os.path.join(tmpdir, file), "a"): os.utime(os.path.join(tmpdir, file), (mtime, mtime))
+            # remove spurious CFLAGS added by distutils
+            config = distutils.sysconfig.get_config_vars()
+            config["CFLAGS"] = ""
+
+            # use string interpolation on the extension settings to provide more flexibility
+            extension = distutils.core.Extension('__main__', sources=[args.argv[0]])
+            if len(interp_lines)>0:
+                info = Cython.Build.Dependencies.DistutilsInfo(source=interp_lines)
                 info.apply(extension)
-        # run distutils build_ext to build the extension module
-        distutils.core.setup(ext_modules=extensions, 
-            script_args=["-v" if args.verbose else "-q", 
-            "build_ext", "-b",tmpdir, "-t","/"])
-        # move any updated files back to the build path
-        for dirpath, dirnames, filenames in os.walk(tmpdir):
-            dir = os.path.join(module_dir, os.path.relpath(dirpath, tmpdir))
-            try: os.makedirs(dir, 0o700)
-            except OSError as e: 
-                if e.errno != errno.EEXIST: raise
 
-            for f in filenames:
-                file = os.path.relpath(os.path.join(dirpath, f), tmpdir)
-                if (not os.path.exists(os.path.join(module_dir, file))
-                      or (os.path.getmtime(os.path.join(module_dir, file)) < os.path.getmtime(os.path.join(tmpdir, file)))):
-                    os.rename(os.path.join(tmpdir, file), os.path.join(module_dir, file))
-    # remove the temporary build directory
-    finally: 
-        shutil.rmtree(tmpdir)
-# add the build path to the module load path and run the extension module
-if not args.check:
-    if args.debug and not args.debugging:
-        sys.argv[:] = (["cygdb"]+(["-vv"] if args.verbose else [])+
-                       [os.path.abspath(module_dir), "--", "--args", sys.executable, os.path.abspath(sys.argv[0]), '--debugging']+
-                       sys.argv[1:])
-        sys.exit(Cython.Debugger.Cygdb.main())
-    else: 
-        sys.argv[:] = args.argv
-        sys.path.insert(1, os.path.abspath(module_dir))
-        if sys.version_info[0] < 3:
-            # trick python 2 into running a module called __main__
-            import imp
+            # configure the extension module
+            extensions = Cython.Build.cythonize(
+                extension,
+                build_dir=tmpdir,
+                output_dir=tmpdir,
+                quiet=not args.verbose,
+                nthreads=multiprocessing.cpu_count(),
+                include_path=include_path,
+                force=args.force,
+                gdb_debug=args.debug)
+            
+            # run distutils build_ext to build the extension module
+            distutils.core.setup(ext_modules=extensions, 
+                script_args=["-v" if args.verbose else "-q", 
+                "build_ext", "-b",tmpdir, "-t","/"])
+            # move any updated files back to the build path
+            for dirpath, dirnames, filenames in os.walk(tmpdir):
+                dir = os.path.join(module_dir, os.path.relpath(dirpath, tmpdir))
+                try: os.makedirs(dir, 0o700)
+                except OSError as e: 
+                    if e.errno != errno.EEXIST: raise
+
+                for f in filenames:
+                    file = os.path.relpath(os.path.join(dirpath, f), tmpdir)
+                    if (not os.path.exists(os.path.join(module_dir, file))
+                        or (os.path.getmtime(os.path.join(module_dir, file)) < os.path.getmtime(os.path.join(tmpdir, file)))):
+                        os.rename(os.path.join(tmpdir, file), os.path.join(module_dir, file))
+        # remove the temporary build directory
+        finally: 
+            shutil.rmtree(tmpdir)
+    # add the build path to the module load path and run the extension module
+    if not args.check:
+        if args.debug and not args.debugging:
+            sys.argv[:] = (["cygdb"]+(["-vv"] if args.verbose else [])+
+                        [os.path.abspath(module_dir), "--", "--args", sys.executable, os.path.abspath(sys.argv[0]), '--debugging']+
+                        sys.argv[1:])
+            sys.exit(Cython.Debugger.Cygdb.main())
+        else: 
+            sys.argv[:] = args.argv
+            sys.path.insert(1, os.path.abspath(module_dir))
+            # trick python into running a module called __main__
             config = distutils.sysconfig.get_config_vars()
             path = os.path.join(module_dir, '__main__'+config['SO'])
             with open(path) as file:
-                imp.load_module('__main__', file, path, (config['SO'], 'rb', imp.C_EXTENSION))
-        else:
-            importlib.reload(importlib.import_module('__main__'))
-sys.exit(0)
+                try:
+                    imp.load_module('__main__', file, args.argv[0], (config['SO'], 'rb', imp.C_EXTENSION))
+                except ImportError as e:
+                    if args.skip:
+                        args.skip = False
+                        continue
+                    else:
+                        raise
+    sys.exit(0)
